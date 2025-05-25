@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Editable, Draggable, Table</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        td,
+        th {
+            cursor: text;
+        }
+        
+        .dragging {
+            opacity: 0.5;
+        }
+    </style>
+</head>
+
+<body class="bg-pink-100 p-10">
+    <div class="max-w-5xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6 text-center"> Table</h1>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="flex flex-col space-y-2">
+                <input id="rowIndex" type="number" placeholder="Row index" class="px-3 py-2 border rounded" />
+                <button onclick="addRowAtIndex()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Add Row</button>
+            </div>
+            <div class="flex flex-col space-y-2">
+                <input id="delRowIndex" type="number" placeholder="Delete row index" class="px-3 py-2 border rounded" />
+                <button onclick="deleteRowAtIndex()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Delete Row</button>
+            </div>
+            <div class="flex flex-col space-y-2">
+                <input id="delColIndex" type="number" placeholder="Delete column index" class="px-3 py-2 border rounded" />
+                <button onclick="deleteColumnAtIndex()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Delete Column</button>
+            </div>
+            <div class="flex flex-col space-y-2">
+                <label class="invisible">Spacer</label>
+                <button onclick="addColumn()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Add Column</button>
+            </div>
+        </div>
+
+        <table id="fullTable" class="table-auto border-collapse w-full bg-white shadow-md">
+            <thead>
+                <tr>
+                    <th class="border px-4 py-2" contenteditable="true" draggable="true">Header 1</th>
+                    <th class="border px-4 py-2" contenteditable="true" draggable="true">Header 2</th>
+                    <th class="border px-4 py-2">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr draggable="true">
+                    <td class="border px-4 py-2" contenteditable="true">Row 1 Col 1</td>
+                    <td class="border px-4 py-2" contenteditable="true">Row 1 Col 2</td>
+                    <td class="border px-4 py-2 text-center">
+                        <button onclick="this.closest('tr').remove()" class="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">Delete</button>
+                        <button onclick="addRowBelow(this)" class="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 ml-2">Add</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function addRowAtIndex() {
+            const index = parseInt(document.getElementById('rowIndex').value);
+            const table = document.getElementById('fullTable');
+            const rowCount = table.rows.length;
+
+            if (isNaN(index) || index < 0 || index >= rowCount) {
+                alert('Enter a valid row index between 0 and ' + (rowCount - 1));
+                return;
+            }
+
+            insertRowAt(table, index + 1);
+        }
+
+        function addRowBelow(button) {
+            const row = button.closest('tr');
+            const index = row.rowIndex;
+            const table = document.getElementById('fullTable');
+            insertRowAt(table, index);
+        }
+
+        function insertRowAt(table, index) {
+            const row = table.insertRow(index);
+            const colCount = table.rows[0].cells.length;
+            row.setAttribute("draggable", true);
+
+            for (let i = 0; i < colCount - 1; i++) {
+                const cell = row.insertCell();
+                cell.className = "border px-4 py-2";
+                cell.setAttribute("contenteditable", true);
+                cell.innerText = `Row ${index} Col ${i + 1}`;
+            }
+
+            const actionCell = row.insertCell();
+            actionCell.className = "border px-4 py-2 text-center";
+            actionCell.innerHTML = '<button onclick="this.closest(\'tr\').remove()" class="bg-red-500 text-red px-2 py-1 rounded hover:bg-red-600">Delete</button><button onclick="addRowBelow(this)" class="bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600 ml-2">Add</button>';
+
+            enableRowDrag(row);
+        }
+
+        function deleteRowAtIndex() {
+            const index = parseInt(document.getElementById('delRowIndex').value);
+            const table = document.getElementById('fullTable');
+            if (!isNaN(index) && index > 0 && index < table.rows.length) {
+                table.deleteRow(index);
+            } else {
+                alert("Invalid row index");
+            }
+        }
+
+        function addColumn() {
+            const table = document.getElementById('fullTable');
+            for (let i = 0; i < table.rows.length; i++) {
+                const row = table.rows[i];
+                const newCell = row.insertCell(row.cells.length - (i === 0 ? 0 : 1));
+                newCell.className = "border px-4 py-2";
+                newCell.setAttribute("contenteditable", true);
+                newCell.setAttribute("draggable", i === 0);
+                newCell.innerText = `Row ${i} Col ${newCell.cellIndex + 1}`;
+            }
+            refreshColumnDrag();
+        }
+
+        function deleteColumnAtIndex() {
+            const index = parseInt(document.getElementById('delColIndex').value);
+            const table = document.getElementById('fullTable');
+            if (isNaN(index) || index < 0 || index >= table.rows[0].cells.length - 1) {
+                alert("Invalid column index");
+                return;
+            }
+            for (let row of table.rows) {
+                row.deleteCell(index);
+            }
+        }
+
+        function enableRowDrag(row) {
+            row.addEventListener("dragstart", () => {
+                draggingRow = row;
+                row.classList.add("dragging");
+            });
+            row.addEventListener("dragend", () => {
+                draggingRow = null;
+                row.classList.remove("dragging");
+            });
+            row.addEventListener("dragover", e => {
+                e.preventDefault();
+                const tbody = row.parentNode;
+                const rows = [...tbody.children];
+                if (draggingRow && draggingRow !== row) {
+                    const currentIndex = rows.indexOf(row);
+                    const dragIndex = rows.indexOf(draggingRow);
+                    if (dragIndex < currentIndex) {
+                        row.after(draggingRow);
+                    } else {
+                        row.before(draggingRow);
+                    }
+                }
+            });
+        }
+
+        let draggingRow;
+        document.querySelectorAll("#fullTable tbody tr").forEach(enableRowDrag);
+
+        let draggingColIndex = null;
+
+        function refreshColumnDrag() {
+            document.querySelectorAll("#fullTable thead th").forEach((th, index) => {
+                if (index === document.querySelectorAll("#fullTable thead th").length - 1) return;
+                th.addEventListener("dragstart", () => {
+                    draggingColIndex = index;
+                    th.classList.add("dragging");
+                });
+                th.addEventListener("dragend", () => {
+                    draggingColIndex = null;
+                    th.classList.remove("dragging");
+                });
+                th.addEventListener("dragover", e => e.preventDefault());
+                th.addEventListener("drop", () => {
+                    if (draggingColIndex === null || draggingColIndex === index) return;
+                    const table = document.getElementById("fullTable");
+                    for (let row of table.rows) {
+                        const cells = [...row.cells];
+                        const draggedCell = cells[draggingColIndex];
+                        const targetCell = cells[index];
+                        if (draggingColIndex < index) {
+                            row.insertBefore(draggedCell, targetCell.nextSibling);
+                        } else {
+                            row.insertBefore(draggedCell, targetCell);
+                        }
+                    }
+                });
+            });
+        }
+        refreshColumnDrag();
+    </script>
+</body>
+
+</html>
